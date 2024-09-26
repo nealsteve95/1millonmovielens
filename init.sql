@@ -46,7 +46,7 @@ WITH (
 );
 
 BULK INSERT ratings
-FROM '/var/opt/mssql/app/data/users.csv'
+FROM '/var/opt/mssql/app/data/ratings.csv'
 WITH (
     FIELDTERMINATOR = '::',
     ROWTERMINATOR = '\n',
