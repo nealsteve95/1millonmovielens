@@ -1,0 +1,16 @@
+services:
+  msqql:
+    build:
+      context:
+    port:
+    - 1433:1433
+    environment:
+      - SA_PASSWORD=12345678
+      - ACCEPT_EULA=Y
+    command:
+    - /bin/bash -c "/opt/mssql/bin/sqlserver & sleep 30 66 /opt/mssql-tools/bin/sqlcmd -
+    S localhost -U SA -P '12345678' -d master -i "
+    volumes:
+      - ./init.sql:/var/opt/mssql/app/init.sql
+      - ./data:/var/opt/msqql/app/data
+
