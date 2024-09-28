@@ -46,57 +46,44 @@ def get_recommendations(ratings: list[Rating]):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Obtener ratings de la base de datos
         cursor.execute("SELECT UserID, MovieID, Rating FROM Ratings")
         db_ratings = cursor.fetchall()
+        
+        # Obtener títulos y géneros de las películas
+        cursor.execute("SELECT MovieID, Title, Genres FROM Movies")  # Modificado a Genres
+        movies = cursor.fetchall()
+        
         conn.close()
         
+        # Crear diccionarios para ratings y movies
         db_ratings_dict = {}
         for user_id, movie_id, rating in db_ratings:
             if user_id not in db_ratings_dict:
                 db_ratings_dict[user_id] = {}
             db_ratings_dict[user_id][movie_id] = rating
         
-        similarities = []
+        movies_dict = {movie_id: {"title": title, "genres": genres} for movie_id, title, genres in movies}
+
+        # Calcular similitudes utilizando solo la distancia Euclidiana
+        recommendations = []
         for user_id, user_ratings in db_ratings_dict.items():
-            manhattan_similarity, manhattan_similar_ratings = calculate_manhattan_similarity(ratings, user_ratings)
-            pearson_similarity, pearson_similar_ratings = calculate_pearson_correlation(ratings, user_ratings)
-            euclidean_similarity, euclidean_similar_ratings = calculate_euclidean_distance(ratings, user_ratings)
-            similarities.append((user_id, manhattan_similarity, pearson_similarity, euclidean_similarity, manhattan_similar_ratings, pearson_similar_ratings, euclidean_similar_ratings))
+            euclidean_distance, similar_ratings = calculate_euclidean_distance(ratings, user_ratings)
+            for movie_id, rating in similar_ratings:
+                if movie_id in movies_dict:  # Verificar si la película existe
+                    recommendations.append({
+                        "user_id": user_id,
+                        "movie_id": movie_id,
+                        "title": movies_dict[movie_id]["title"],
+                        "genres": movies_dict[movie_id]["genres"]  # Cambiado a genres
+                    })
         
-        similarities.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
-        
-        return {"recommendations": similarities[:10]}  # Top 10 similar users
+        # Retornar las 10 mejores recomendaciones basadas en similitud
+        recommendations = sorted(recommendations, key=lambda x: x['user_id'])[:10]  # Por simplicidad, aquí solo se está limitando por UserID
+        return {"recommendations": recommendations}  # Top 10 recomendaciones
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching recommendations: {e}")
-
-
-def calculate_manhattan_similarity(ratings, user_ratings):
-    distance = 0
-    similar_ratings = []
-    for rating in ratings:
-        if rating.movie_id in user_ratings:
-            distance += abs(rating.rating - user_ratings[rating.movie_id])
-            similar_ratings.append((rating.user_id, rating.movie_id, user_ratings[rating.movie_id]))
-    return distance, similar_ratings
-
-def calculate_pearson_correlation(ratings, user_ratings):
-    common_ratings = [(rating.rating, user_ratings[rating.movie_id]) for rating in ratings if rating.movie_id in user_ratings]
-    
-    if len(common_ratings) < 2:
-        return 0, []
-    
-    ratings_a, ratings_b = zip(*common_ratings)
-    mean_a = sum(ratings_a) / len(ratings_a)
-    mean_b = sum(ratings_b) / len(ratings_b)
-    
-    numerator = sum((a - mean_a) * (b - mean_b) for a, b in common_ratings)
-    denominator_a = math.sqrt(sum((a - mean_a) ** 2 for a in ratings_a))
-    denominator_b = math.sqrt(sum((b - mean_b) ** 2 for b in ratings_b))
-    
-    if denominator_a == 0 or denominator_b == 0:
-        return 0, common_ratings
-    
-    return numerator / (denominator_a * denominator_b), common_ratings
 
 def calculate_euclidean_distance(ratings, user_ratings):
     distance = 0
@@ -104,7 +91,7 @@ def calculate_euclidean_distance(ratings, user_ratings):
     for rating in ratings:
         if rating.movie_id in user_ratings:
             distance += (rating.rating - user_ratings[rating.movie_id]) ** 2
-            similar_ratings.append((rating.user_id, rating.movie_id, user_ratings[rating.movie_id]))
+            similar_ratings.append((rating.movie_id, user_ratings[rating.movie_id]))  # Guardamos el MovieID y Rating
     return math.sqrt(distance), similar_ratings
 
 
