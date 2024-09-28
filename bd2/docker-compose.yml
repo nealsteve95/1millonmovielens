@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    build: .
+    container_name: sql1
+    hostname: sql1
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "YourStrong@Passw0rd"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./init_db.sh:/usr/src/app/init_db.sh # Montar el script
+    networks:
+      - sqlnetwork
+
+  initdb:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      - sqlserver
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./init_db.sh:/usr/src/app/init_db.sh # Montar el script
+    entrypoint: ["/bin/bash", "/usr/src/app/init_db.sh"] # Ejecutar el script
+
+networks:
+  sqlnetwork:
+
+volumes:
+  mssql_data:
